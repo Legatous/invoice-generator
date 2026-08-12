@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice Generator</title>
+<script src="js/jspdf.umd.min.js"></script>
+
+
+<link rel="stylesheet" href="css/styles.css">
+
+</head>
+<body>
+
+<div class="topbar">Invoice Generator</div>
+
+<div class="wrap">
+  <div class="card">
+
+    <div class="grid2">
+      <div class="col">
+        <div class="logo-section-compact">
+          <div class="logo-preview" id="logoPreview">
+            <span id="logoPlaceholder">No logo</span>
+            <img id="logoImg" style="display:none;" alt="Company logo">
+          </div>
+          <div class="logo-controls">
+            <label for="logoInput" class="logo-upload-btn">Upload Logo</label>
+            <input type="file" id="logoInput" accept="image/png,image/jpeg" onchange="handleLogoUpload(event)">
+            <button type="button" class="logo-remove-btn" id="logoRemoveBtn" onclick="removeLogo()" style="display:none;">Remove</button>
+          </div>
+        </div>
+        <label>Company Name</label>
+        <input type="text" id="companyName" placeholder="Company Name">
+        <label>Your Name</label>
+        <input type="text" id="yourName" placeholder="Your Name">
+        <label>Company Address</label>
+        <input type="text" id="companyAddress" placeholder="Company Address">
+        <label>City, State Zip</label>
+        <input type="text" id="companyCityStateZip" placeholder="City, State Zip">
+        <label>Country</label>
+        <select id="companyCountry" onchange="toggleOtherCountry('companyCountry','companyCountryOther')">
+          <option value="">Country</option>
+          <option>United States</option>
+          <option>United Kingdom</option>
+          <option>Canada</option>
+          <option>Australia</option>
+          <option>Germany</option>
+          <option>France</option>
+          <option>Other</option>
+        </select>
+        <input type="text" id="companyCountryOther" placeholder="Enter country name" style="display:none;">
+        <label>Tax ID / VAT Number <span class="optional-tag">(optional)</span></label>
+        <input type="text" id="companyTaxId" placeholder="e.g. EIN 12-3456789 or DE123456789">
+      </div>
+      <div class="col invoice-header-box">
+        <label>&nbsp;</label>
+        <textarea id="invoiceLabel" readonly>INVOICE</textarea>
+      </div>
+    </div>
+
+    <h3 class="section-title">Bill To</h3>
+    <div class="grid2">
+      <div class="col">
+        <label>Bill To</label>
+        <input type="text" id="billTo" placeholder="Bill To:">
+        <label>Your Client's Company</label>
+        <input type="text" id="clientCompany" placeholder="Your Client's Company">
+        <label>Client's Address</label>
+        <input type="text" id="clientAddress" placeholder="Client's Address">
+        <label>City, State Zip</label>
+        <input type="text" id="clientCityStateZip" placeholder="City, State Zip">
+        <label>Country</label>
+        <select id="clientCountry" onchange="toggleOtherCountry('clientCountry','clientCountryOther')">
+          <option value="">Country</option>
+          <option>United States</option>
+          <option>United Kingdom</option>
+          <option>Canada</option>
+          <option>Australia</option>
+          <option>Germany</option>
+          <option>France</option>
+          <option>Other</option>
+        </select>
+        <input type="text" id="clientCountryOther" placeholder="Enter country name" style="display:none;">
+        <label>Tax ID / VAT Number <span class="optional-tag">(optional)</span></label>
+        <input type="text" id="clientTaxId" placeholder="e.g. FR12345678901">
+      </div>
+      <div class="col">
+        <label>Invoice #</label>
+        <input type="text" id="invoiceNumber" value="INV-100">
+        <label>Invoice Date</label>
+        <input type="date" id="invoiceDate">
+        <label>Due Date</label>
+        <input type="date" id="dueDate">
+      </div>
+    </div>
+
+    <h3 class="section-title">Items</h3>
+    <table class="items" id="itemsTable">
+      <thead>
+        <tr>
+          <th style="width:40%">Item Description</th>
+          <th style="width:15%">Qty</th>
+          <th style="width:20%">Cost</th>
+          <th style="width:20%">Amount</th>
+          <th style="width:5%"></th>
+        </tr>
+      </thead>
+      <tbody id="itemsBody"></tbody>
+    </table>
+    <button class="add-item" onclick="addItem()">+ Add new item</button>
+
+    <h3 class="section-title">Tax Setup</h3>
+    <details class="tax-disclaimer">
+      <summary>⚠️ About these tax rates — accuracy notes</summary>
+      <ul>
+        <li><strong>US rates are state-level only.</strong> Local county/city sales tax is not included, so the real combined rate at checkout is often higher.</li>
+        <li><strong>US exemptions are treated as flat 0%.</strong> A few states tax certain goods (e.g. groceries) at a genuine nonzero reduced rate rather than fully exempting them — this tool doesn't model that.</li>
+        <li><strong>EU reduced rates show only the primary tier.</strong> Several countries have two reduced rates; only the most common one is included here.</li>
+        <li><strong>Rates are a snapshot, not live data.</strong> VAT/GST/sales tax rates change periodically and may not reflect the current law.</li>
+        <li><strong>No ID/jurisdiction validation.</strong> VAT number formats and ZIP-to-state mapping aren't checked — reverse charge relies on you confirming both parties' VAT IDs are valid.</li>
+      </ul>
+      <p>This is a self-serve estimate, not a tax-compliance service. For high-volume or audit-sensitive invoicing, verify rates with a tax API (e.g. Avalara, TaxJar, Stripe Tax) or an accountant.</p>
+    </details>
+    <div class="tax-region-picker">
+      <div class="tax-region-toggle">
+        <button type="button" class="region-btn" id="regionBtnUS" onclick="selectTaxRegion('US')">🇺🇸 United States</button>
+        <button type="button" class="region-btn" id="regionBtnEU" onclick="selectTaxRegion('EU')">🇪🇺 European Union</button>
+        <button type="button" class="region-btn" id="regionBtnOther" onclick="selectTaxRegion('OTHER')">Other / Manual</button>
+      </div>
+      <select id="usStateSelect" class="region-sub-select" style="display:none;" onchange="applyUsState()">
+        <option value="">Select a state...</option>
+      </select>
+      <select id="euCountrySelect" class="region-sub-select" style="display:none;" onchange="applyEuCountry()">
+        <option value="">Select a country...</option>
+      </select>
+      <div id="otherRegionInputs" class="other-region-inputs" style="display:none;">
+        <input type="text" id="otherRegionName" placeholder="Region / country name (e.g. Switzerland)" oninput="applyOtherRegion()">
+        <input type="number" id="otherRegionRate" placeholder="Tax rate %" min="0" step="0.1" oninput="applyOtherRegion()">
+        <input type="text" id="otherReducedLabel" value="Tax Reduction" readonly class="readonly-box">
+        <input type="number" id="otherReducedRate" placeholder="Reduction amount (e.g. 5)" min="0" step="0.1" oninput="applyOtherRegion()">
+      </div>
+    </div>
+
+    <div class="totals">
+      <div class="totals-row">
+        <span>Sub Total:</span>
+        <span id="subTotalDisplay">0.00</span>
+      </div>
+      <div class="totals-row">
+        <span><input type="text" id="taxLabel" value="Sales Tax" class="tax-label-input"> (<input type="number" id="taxRate" value="10" min="0" step="0.1">%):</span>
+        <span id="taxAmountDisplay">0.00</span>
+      </div>
+      <div class="totals-row" id="taxCountryNoteRow">
+        <span class="reverse-charge-note" id="taxCountryNote"></span>
+        <span></span>
+      </div>
+      <div class="totals-row" id="reducedRateToggleRow" style="display:none;">
+        <label class="reduced-rate-toggle">
+          <input type="checkbox" id="reducedRateCheckbox" onchange="toggleReducedRate()">
+          <span id="reducedRateLabel">Use reduced rate</span>
+        </label>
+      </div>
+      <div class="totals-row" id="reverseChargeRow" style="display:none;">
+        <span class="reverse-charge-note">Reverse charge — VAT to be accounted for by the recipient</span>
+      </div>
+      <div class="totals-row total">
+        <span>Total:</span>
+        <span id="totalDisplay">0.00</span>
+      </div>
+      <select id="currency" class="currency-select" onchange="toggleCustomCurrency()">
+        <optgroup label="Fiat">
+          <option value="$">USD - US Dollar ($)</option>
+          <option value="€">EUR - Euro (€)</option>
+          <option value="£">GBP - British Pound (£)</option>
+          <option value="¥">JPY - Japanese Yen (¥)</option>
+          <option value="C$">CAD - Canadian Dollar (C$)</option>
+          <option value="A$">AUD - Australian Dollar (A$)</option>
+          <option value="CHF ">CHF - Swiss Franc (CHF)</option>
+          <option value="kr">SEK - Swedish Krona (kr)</option>
+          <option value="₹">INR - Indian Rupee (₹)</option>
+          <option value="R$">BRL - Brazilian Real (R$)</option>
+        </optgroup>
+        <optgroup label="Crypto">
+          <option value="₿">BTC - Bitcoin (₿)</option>
+          <option value="Ξ">ETH - Ethereum (Ξ)</option>
+          <option value="₮">USDT - Tether (₮)</option>
+          <option value="USDC ">USDC - USD Coin (USDC)</option>
+          <option value="◎">SOL - Solana (◎)</option>
+          <option value="₳">ADA - Cardano (₳)</option>
+          <option value="X">XRP - Ripple (X)</option>
+        </optgroup>
+        <option value="__other__" style="font-weight:bold; color:#000; padding-left:16px;">&nbsp;&nbsp;Other</option>
+      </select>
+      <div id="customCurrencyInputs" class="custom-currency-inputs" style="display:none;">
+        <input type="text" id="customCurrencyCode" placeholder="Code (e.g. CHF, DOGE)" oninput="autofillCurrencySymbol()">
+        <input type="text" id="customCurrencySymbol" placeholder="Symbol (auto-filled, editable)">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" onclick="generatePDF()">Download</button>
+      <button class="secondary" onclick="addItem()">Add Item</button>
+      <button class="secondary" onclick="autofillEU()">Fill EU Sample</button>
+      <button class="secondary" onclick="autofillUS()">Fill US Sample</button>
+      <button class="secondary" onclick="clearForm()">Clear Form</button>
+    </div>
+    <div id="pdfLinkBox" style="display:none; margin-top:14px;"></div>
+
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+
+
+</body>
+</html>
