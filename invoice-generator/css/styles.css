@@ -318,6 +318,13 @@
     font-weight:700;
     font-size:16px;
   }
+  .amount-in-words{
+    font-size:11px;
+    font-style:italic;
+    color:var(--muted);
+    margin:6px 0 12px;
+    line-height:1.4;
+  }
   .totals-row input[type=number]{
     width:80px;
     margin-bottom:0;
