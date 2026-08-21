@@ -168,29 +168,28 @@
         <span>Total:</span>
         <span id="totalDisplay">0.00</span>
       </div>
+      <div class="amount-in-words" id="amountInWords"></div>
       <select id="currency" class="currency-select" onchange="toggleCustomCurrency()">
         <optgroup label="Fiat">
-          <option value="$">USD - US Dollar ($)</option>
-          <option value="€">EUR - Euro (€)</option>
-          <option value="£">GBP - British Pound (£)</option>
-          <option value="¥">JPY - Japanese Yen (¥)</option>
-          <option value="C$">CAD - Canadian Dollar (C$)</option>
-          <option value="A$">AUD - Australian Dollar (A$)</option>
-          <option value="CHF ">CHF - Swiss Franc (CHF)</option>
-          <option value="kr">SEK - Swedish Krona (kr)</option>
-          <option value="₹">INR - Indian Rupee (₹)</option>
-          <option value="R$">BRL - Brazilian Real (R$)</option>
+          <option value="$" data-code="USD">USD - US Dollar ($)</option>
+          <option value="€" data-code="EUR">EUR - Euro (€)</option>
+          <option value="£" data-code="GBP">GBP - British Pound (£)</option>
+          <option value="¥" data-code="JPY">JPY - Japanese Yen (¥)</option>
+          <option value="C$" data-code="CAD">CAD - Canadian Dollar (C$)</option>
+          <option value="A$" data-code="AUD">AUD - Australian Dollar (A$)</option>
+          <option value="CHF " data-code="CHF">CHF - Swiss Franc (CHF)</option>
+          <option value="kr" data-code="SEK">SEK - Swedish Krona (kr)</option>
+          <option value="₹" data-code="INR">INR - Indian Rupee (₹)</option>
+          <option value="R$" data-code="BRL">BRL - Brazilian Real (R$)</option>
         </optgroup>
         <optgroup label="Crypto">
-          <option value="₿">BTC - Bitcoin (₿)</option>
-          <option value="Ξ">ETH - Ethereum (Ξ)</option>
-          <option value="₮">USDT - Tether (₮)</option>
-          <option value="USDC ">USDC - USD Coin (USDC)</option>
-          <option value="◎">SOL - Solana (◎)</option>
-          <option value="₳">ADA - Cardano (₳)</option>
-          <option value="X">XRP - Ripple (X)</option>
+          <option value="₿" data-code="BTC">BTC - Bitcoin (₿)</option>
+          <option value="Ξ" data-code="ETH">ETH - Ethereum (Ξ)</option>
+          <option value="₮" data-code="USDT">USDT - Tether (₮)</option>
+          <option value="USDC " data-code="USDC">USDC - USD Coin (USDC)</option>
+          <option value="◎" data-code="SOL">SOL - Solana (◎)</option>
         </optgroup>
-        <option value="__other__" style="font-weight:bold; color:#000; padding-left:16px;">&nbsp;&nbsp;Other</option>
+        <option value="__other__" data-code="" style="font-weight:bold; color:#000; padding-left:16px;">&nbsp;&nbsp;Other (custom currency)...</option>
       </select>
       <div id="customCurrencyInputs" class="custom-currency-inputs" style="display:none;">
         <input type="text" id="customCurrencyCode" placeholder="Code (e.g. CHF, DOGE)" oninput="autofillCurrencySymbol()">
@@ -199,7 +198,7 @@
     </div>
 
     <div class="actions">
-      <button class="primary" onclick="generatePDF()">Download</button>
+      <button class="primary" onclick="generatePDF()">Save as PDF</button>
       <button class="secondary" onclick="addItem()">Add Item</button>
       <button class="secondary" onclick="autofillEU()">Fill EU Sample</button>
       <button class="secondary" onclick="autofillUS()">Fill US Sample</button>
