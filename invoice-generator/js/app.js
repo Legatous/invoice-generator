@@ -91,9 +91,11 @@ function calcTotals(){
   document.getElementById('subTotalDisplay').textContent = formatNumber(subTotal);
   document.getElementById('taxAmountDisplay').textContent = formatNumber(taxAmount);
   document.getElementById('totalDisplay').textContent = formatNumber(total);
+  document.getElementById('amountInWords').textContent = amountToWords(total);
 }
 
 document.getElementById('taxRate').addEventListener('input', calcTotals);
+document.getElementById('currency').addEventListener('change', calcTotals);
 
 // --- Country "Other" manual entry -----------------------------------------
 
@@ -153,6 +155,7 @@ function autofillCurrencySymbol(){
     // Unknown code — fall back to showing the code itself as the symbol
     symbolInput.value = code + ' ';
   }
+  calcTotals();
 }
 
 // Returns the symbol/prefix to actually use for amounts (custom currency
@@ -165,6 +168,100 @@ function getCurrentCurrencySymbol(){
     return symbol || (code ? code + ' ' : '');
   }
   return select.value;
+}
+
+// Returns the currency code/name to print in "Amount in Words" (e.g. USD,
+// BTC) — from the selected option's data-code, or the typed custom code.
+function getCurrentCurrencyCode(){
+  const select = document.getElementById('currency');
+  if(select.value === '__other__'){
+    const code = document.getElementById('customCurrencyCode').value.trim().toUpperCase();
+    return code || 'UNITS';
+  }
+  const opt = select.selectedOptions[0];
+  return (opt && opt.dataset.code) ? opt.dataset.code : '';
+}
+
+// --- Number-to-words (for "Amount in Words" on the invoice) ---------------
+
+const NUM_WORDS_ONES = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine',
+  'Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+const NUM_WORDS_TENS = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+const NUM_WORDS_SCALE = ['','Thousand','Million','Billion','Trillion'];
+
+function threeDigitsToWords(n){
+  let str = '';
+  if(n >= 100){
+    str += NUM_WORDS_ONES[Math.floor(n/100)] + ' Hundred';
+    n = n % 100;
+    if(n > 0) str += ' ';
+  }
+  if(n >= 20){
+    str += NUM_WORDS_TENS[Math.floor(n/10)];
+    if(n % 10 > 0) str += '-' + NUM_WORDS_ONES[n % 10];
+  } else if(n > 0){
+    str += NUM_WORDS_ONES[n];
+  }
+  return str;
+}
+
+// Converts a non-negative integer into English words, e.g. 356 -> "Three Hundred Fifty-Six"
+function integerToWords(num){
+  num = Math.floor(Math.abs(num));
+  if(num === 0) return 'Zero';
+
+  const groups = [];
+  while(num > 0){
+    groups.push(num % 1000);
+    num = Math.floor(num / 1000);
+  }
+
+  const parts = [];
+  for(let i = groups.length - 1; i >= 0; i--){
+    if(groups[i] === 0) continue;
+    const groupWords = threeDigitsToWords(groups[i]);
+    parts.push(groupWords + (NUM_WORDS_SCALE[i] ? ' ' + NUM_WORDS_SCALE[i] : ''));
+  }
+  return parts.join(' ');
+}
+
+// Builds the "Amount in Words" line, e.g.
+// "Three Hundred Fifty-Six and 54/100 USD"
+// Minor-unit (subunit) info per currency code: name + how many subunits
+// make up one whole unit. null means no commonly-used subunit (e.g. JPY —
+// whole units only). Falls back to Cents/100 for anything not listed.
+const MINOR_UNIT_INFO = {
+  USD:{name:'Cents', factor:100},     EUR:{name:'Cents', factor:100},
+  GBP:{name:'Pence', factor:100},     CAD:{name:'Cents', factor:100},
+  AUD:{name:'Cents', factor:100},     CHF:{name:'Rappen', factor:100},
+  SEK:{name:'Öre', factor:100},       INR:{name:'Paise', factor:100},
+  BRL:{name:'Centavos', factor:100},  JPY:null,
+  BTC:{name:'Satoshis', factor:100000000},
+  ETH:{name:'Gwei', factor:1000000000},
+  USDT:{name:'Cents', factor:100},    USDC:{name:'Cents', factor:100},
+  SOL:{name:'Lamports', factor:1000000000}
+};
+
+function amountToWords(total){
+  const code = getCurrentCurrencyCode();
+  const info = MINOR_UNIT_INFO.hasOwnProperty(code) ? MINOR_UNIT_INFO[code] : {name:'Cents', factor:100};
+
+  if(info === null){
+    // No subunit in common use (e.g. Japanese Yen) — whole units only
+    const wholeOnly = Math.round(Number(total) || 0);
+    let words = integerToWords(wholeOnly);
+    if(code) words += ' ' + code;
+    return words;
+  }
+
+  const factor = info.factor;
+  const totalSubunits = Math.round((Number(total) || 0) * factor);
+  const whole = Math.floor(totalSubunits / factor);
+  const minorUnits = totalSubunits - (whole * factor);
+
+  let words = integerToWords(whole) + ' and ' + minorUnits + ' ' + info.name;
+  if(code) words += ' ' + code;
+  return words;
 }
 
 // Standard tax system per country: label, default rate (%), and a short note
@@ -554,6 +651,17 @@ function generatePDF(){
   doc.setFontSize(13);
   doc.text('Total:', 420, y);
   doc.text(currency + total, 555, y, { align: 'right' });
+  y += 18;
+
+  const amountWords = document.getElementById('amountInWords').textContent;
+  if(amountWords){
+    doc.setFont(undefined,'italic');
+    doc.setFontSize(9);
+    doc.setTextColor(90);
+    doc.text(amountWords, 555, y, { align: 'right', maxWidth: 250 });
+    doc.setTextColor(0);
+    doc.setFont(undefined,'normal');
+  }
   y += 20;
 
   if(reverseCharge){
